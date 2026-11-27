@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ADMOB_APP_ID: "ca-app-pub-3940256099942544~3347511713"
-
+      ADMOB_APP_ID: "ca-app-pub-3840341044949691~7329993273"
     steps:
       - name: Ambil Kode Proyek
         uses: actions/checkout@v4
