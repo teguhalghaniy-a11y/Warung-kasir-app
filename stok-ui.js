@@ -302,6 +302,14 @@ const StokModule = {
         sellPriceRetail = !isNaN(sRet) && sRet > 0 ? sRet : Math.ceil(sellPricePack / packSize);
       }
       const notes = document.getElementById("prod-notes").value.trim();
+    const currentId = typeof editId !== "undefined" ? editId : (this.editingId || null);
+    const duplicate = await StokData.findDuplicateName(name, currentId);
+
+    if (duplicate) {
+      Utils.showToast(`Gagal: Nama "${duplicate.name}" sudah ada!`);
+      alert(`Nama barang "${duplicate.name}" sudah terdaftar di sistem.\n\nTidak boleh ada 2 barang dengan nama yang sama. Gunakan tombol "+ Tambah Stok / Batch" pada barang tersebut.`);
+      return;
+    }
 
       if (isEdit) {
         const old = await WarungDB.get("products", document.getElementById("prod-id").value);

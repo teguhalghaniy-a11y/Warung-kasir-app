@@ -1,4 +1,23 @@
 const StokData = {
+  normalizeName(name) {
+    return String(name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  },
+
+  async findDuplicateName(name, excludeProductId = null) {
+    const target = this.normalizeName(name);
+    if (!target) return null;
+    const products = await WarungDB.getAll("products");
+    return products.find(p => {
+      if (excludeProductId && p.id === excludeProductId) return false;
+      return this.normalizeName(p.name) === target;
+    }) || null;
+  },
+
+  // ...fungsi-fungsi lama di bawahnya tetap dibiarkan apa adanya...
+
   async getEnrichedProducts() {
     const [settings, products, batches, transactions] = await Promise.all([
       WarungDB.get("settings", "store_config"),
