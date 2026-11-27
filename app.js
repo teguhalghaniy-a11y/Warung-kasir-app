@@ -155,7 +155,7 @@ const App = {
   if (!config) return;
   const titleEl = document.getElementById("header-store-name");
   if (titleEl) titleEl.textContent = config.storeName || "WARUNG MADURA";
-  const showAds = config.showAds !== false;
+  const showAds=true;
   const adSlot = document.getElementById("ad-banner-slot");
   if (adSlot) adSlot.classList.toggle("hidden", !showAds);
   if (typeof AdMobBridge !== "undefined") {
@@ -170,8 +170,7 @@ const App = {
     document.getElementById("set-store-address").value = config.storeAddress || "";
     document.getElementById("set-low-stock").value = config.lowStockThreshold || 5;
     document.getElementById("set-exp-days").value = config.expiryWarningDays || 30;
-    document.getElementById("set-show-ads").checked = config.showAds !== false;
-    document.getElementById("set-enable-photos").checked = config.enablePhotos !== false;
+document.getElementById("set-enable-photos").checked = config.enablePhotos !== false;
   },
 
   bindSettingsForm() {
@@ -185,7 +184,7 @@ const App = {
         storeAddress: document.getElementById("set-store-address").value.trim(),
         lowStockThreshold: Math.max(1, parseInt(document.getElementById("set-low-stock").value, 10) || 5),
         expiryWarningDays: Math.max(1, parseInt(document.getElementById("set-exp-days").value, 10) || 30),
-        showAds: document.getElementById("set-show-ads").checked,
+        showAds:true,
         enablePhotos: document.getElementById("set-enable-photos").checked
       };
       await WarungDB.put("settings", updatedConfig);
