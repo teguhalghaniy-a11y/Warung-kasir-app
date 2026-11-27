@@ -1,7 +1,7 @@
 const AdMobBridge = {
   // Ganti dengan Banner Ad Unit ID asli milik Anda setelah daftar di admob.google.com
   // Saat ini menggunakan Test ID resmi Google agar aman saat diuji coba di HP sendiri
-  BANNER_AD_UNIT_ID: "ca-app-pub-3940256099942544/6300978111",
+  BANNER_AD_UNIT_ID: "ca-app-pub-3840341044949691/7578898576",
   IS_TESTING: true,
   initialized: false,
 
