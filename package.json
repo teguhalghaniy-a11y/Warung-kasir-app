@@ -1,0 +1,16 @@
+{
+  "name": "warung-madura-kasir",
+  "version": "1.0.0",
+  "description": "Aplikasi Kasir & Stok Offline untuk Warung Madura",
+  "scripts": {
+    "prepare-web": "mkdir -p www && cp *.html *.css *.js www/"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Warung Kasir - POS Toko Kelontong</title>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.__JS_ERRORS__ = [];
+    window.addEventListener("error", function (e) {
+      var info = e.message || "Gagal memuat file script";
+      if (e.filename) info += " (" + e.filename.split("/").pop() + ":" + e.lineno + ")";
+      window.__JS_ERRORS__.push(info);
+    }, true);
+  </script>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1 id="header-store-name" class="store-title">WARUNG MADURA</h1>
+          <p id="header-date" class="header-subtitle">Memuat tanggal...</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="network-badge" class="status-badge offline">Offline Ready</span>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main id="main-content" class="main-content">
+      
+      <!-- VIEW 1: DASHBOARD -->
+      <section id="view-dashboard" class="view-section active">
+        <div class="stats-grid">
+          <div class="stat-card primary">
+            <div class="stat-header">
+              <span class="stat-label">Omzet Hari Ini</span>
+              <span class="stat-icon">💰</span>
+            </div>
+            <div id="dash-omzet" class="stat-value">Rp0</div>
+            <div id="dash-transaksi-count" class="stat-meta">0 transaksi hari ini</div>
+          </div>
+
+          <div class="stat-card success">
+            <div class="stat-header">
+              <span class="stat-label">Keuntungan Hari Ini</span>
+              <span class="stat-icon">📈</span>
+            </div>
+            <div id="dash-profit" class="stat-value">Rp0</div>
+            <div class="stat-meta">Laba bersih terealisasi</div>
+          </div>
+        </div>
+
+        <div class="alert-grid">
+          <div class="mini-card" data-nav="hutang" role="button" tabindex="0">
+            <div class="mini-card-top">
+              <span class="mini-label">Piutang Belum Lunas</span>
+              <span class="badge-dot warning"></span>
+            </div>
+            <div id="dash-piutang" class="mini-value text-warning">Rp0</div>
+          </div>
+
+          <div class="mini-card" data-nav="stok" role="button" tabindex="0">
+            <div class="mini-card-top">
+              <span class="mini-label">Stok Hampir Habis</span>
+              <span class="badge-dot danger"></span>
+            </div>
+            <div id="dash-low-stock" class="mini-value">0 Barang</div>
+          </div>
+
+          <div class="mini-card" data-nav="stok" role="button" tabindex="0">
+            <div class="mini-card-top">
+              <span class="mini-label">Mendekati Kedaluwarsa</span>
+              <span class="badge-dot danger"></span>
+            </div>
+            <div id="dash-near-exp" class="mini-value">0 Batch</div>
+          </div>
+
+          <div class="mini-card" data-nav="kasir" role="button" tabindex="0">
+            <div class="mini-card-top">
+              <span class="mini-label">Akses Cepat</span>
+              <span class="badge-dot info"></span>
+            </div>
+            <div class="mini-value text-accent">Buka Kasir →</div>
+          </div>
+        </div>
+
+        <div class="card chart-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Grafik Penjualan 30 Hari</h2>
+              <p class="card-subtitle">Omzet harian terealisasi</p>
+            </div>
+            <span id="chart-total-30d" class="chart-summary-pill">Rp0</span>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="sales-chart-30d"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: KASIR -->
+      <section id="view-kasir" class="view-section">
+        <div class="card empty-module-card">
+          <div class="module-badge">Modul Tahap 3</div>
+          <h2>Sistem Kasir &amp; Transaksi</h2>
+          <p>Stok barang sudah aktif! Lanjut ke Tahap 3 untuk mengaktifkan transaksi Tunai, Eceran, dan Hutang.</p>
+          <button type="button" class="btn btn-secondary" data-nav="dashboard">Kembali ke Dashboard</button>
+        </div>
+      </section>
+
+      <!-- VIEW 3: STOK BARANG & STOK OPNAME -->
+      <section id="view-stok" class="view-section">
+        <div class="subtab-bar">
+          <button type="button" class="stok-subtab active" data-stok-tab="daftar">Status Stok</button>
+          <button type="button" class="stok-subtab" data-stok-tab="tambah">+ Barang Baru</button>
+          <button type="button" class="stok-subtab" data-stok-tab="opname">Opname &amp; Mutasi</button>
+          <button type="button" class="stok-subtab" data-stok-tab="riwayat">Riwayat Stok</button>
+        </div>
+        <div id="stok-dynamic-container"></div>
+      </section>
+
+      <!-- VIEW 4: HUTANG -->
+      <section id="view-hutang" class="view-section">
+        <div class="card empty-module-card">
+          <div class="module-badge">Modul Tahap 4</div>
+          <h2>Buku Piutang &amp; Cicilan Pelanggan</h2>
+          <p>Mencatat piutang pelanggan, pembayaran cicilan bertahap, serta realisasi omzet dan keuntungan secara proporsional.</p>
+          <button type="button" class="btn btn-secondary" data-nav="dashboard">Kembali ke Dashboard</button>
+        </div>
+      </section>
+
+      <!-- VIEW 5: RIWAYAT -->
+      <section id="view-riwayat" class="view-section">
+        <div class="card empty-module-card">
+          <div class="module-badge">Modul Tahap 4</div>
+          <h2>Riwayat Seluruh Transaksi</h2>
+          <p>Filter riwayat transaksi tunai, eceran, hutang, cicilan, dan pelunasan berdasarkan tanggal serta status.</p>
+          <button type="button" class="btn btn-secondary" data-nav="dashboard">Kembali ke Dashboard</button>
+        </div>
+      </section>
+
+      <!-- VIEW 6: LAPORAN -->
+      <section id="view-laporan" class="view-section">
+        <div class="card empty-module-card">
+          <div class="module-badge">Modul Tahap 5</div>
+          <h2>Laporan &amp; Analisis Penjualan</h2>
+          <p>Analisis barang terlaris (unit terkecil), barang tidak laku, profit tertinggi, dan perbandingan eceran vs satuan.</p>
+          <button type="button" class="btn btn-secondary" data-nav="dashboard">Kembali ke Dashboard</button>
+        </div>
+      </section>
+
+      <!-- VIEW 7: PENGATURAN -->
+      <section id="view-pengaturan" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Pengaturan Toko &amp; Aplikasi</h2>
+              <p class="card-subtitle">Data tersimpan permanen di penyimpanan lokal HP</p>
+            </div>
+          </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Backup &amp; Restore Database</h2>
+              <p class="card-subtitle">Simpan cadangan data stok, transaksi &amp; hutang ke file JSON HP</p>
+            </div>
+          </div>
+          <div class="form-stack">
+            <button type="button" id="btn-export-backup" class="btn btn-primary btn-block">⬇️ Unduh / Simpan File Backup (.json)</button>
+            <label class="btn btn-secondary btn-block" style="text-align:center; cursor:pointer;">
+              ⬆️ Pulihkan Data dari File Backup (.json)
+              <input type="file" id="input-import-backup" accept=".json,application/json" hidden />
+            </label>
+          </div>
+        </div>
+
+          <form id="form-settings" class="form-stack">
+            <div class="form-group">
+              <label for="set-store-name">Nama Warung / Toko</label>
+              <input type="text" id="set-store-name" class="form-control" placeholder="Contoh: Warung Madura Berkah" required />
+            </div>
+
+            <div class="form-group">
+              <label for="set-store-address">Alamat / Catatan Struk</label>
+              <input type="text" id="set-store-address" class="form-control" placeholder="Contoh: Jl. Raya Utama No. 12" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="set-low-stock">Batas Stok Menipis</label>
+                <input type="number" id="set-low-stock" class="form-control" min="1" value="5" required />
+              </div>
+              <div class="form-group">
+                <label for="set-exp-days">Peringatan Exp (Hari)</label>
+                <input type="number" id="set-exp-days" class="form-control" min="1" value="30" required />
+              </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="set-show-ads" checked />
+              <label for="set-show-ads">Tampilkan Banner Informasi / Iklan di Bawah</label>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="set-enable-photos" checked />
+              <label for="set-enable-photos">Aktifkan Fitur Foto Produk</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Simpan Pengaturan</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Status Database Lokal (IndexedDB)</h2>
+              <p class="card-subtitle">Verifikasi penyimpanan offline</p>
+            </div>
+          </div>
+          <div id="db-status-info" class="db-info-box">Memeriksa koneksi database...</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- SLOT IKLAN AMAN -->
+    <div id="ad-banner-slot" class="ad-banner-container" role="region" aria-label="Area Informasi dan Iklan">
+      <div class="ad-content">
+        <span class="ad-tag">INFO</span>
+        <span class="ad-text">Aplikasi kasir berjalan 100% offline di HP Android Anda.</span>
+      </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav" aria-label="Navigasi Utama">
+      <button type="button" class="nav-item active" data-nav="dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="kasir">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span>Kasir</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="stok">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <span>Stok</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="hutang">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <span>Hutang</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="riwayat">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Riwayat</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="laporan">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Laporan</span>
+      </button>
+
+      <button type="button" class="nav-item" data-nav="pengaturan">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Setelan</span>
+      </button>
+    </nav>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  </div>
+
+  <!-- MODULAR SCRIPTS -->
+  <script src="utils.js?v=5"></script>
+  <script src="db.js?v=5"></script>
+  <script src="dashboard.js?v=5"></script>
+  <script src="stok-data.js?v=5"></script>
+  <script src="stok-ui.js?v=5"></script>
+  <script src="kasir-data.js?v=5"></script>
+  <script src="kasir-ui.js?v=5"></script>
+  <script src="hutang-data.js?v=5"></script>
+  <script src="hutang-ui.js?v=5"></script>
+  <script src="riwayat-ui.js?v=5"></script>
+  <script src="laporan-data.js?v=5"></script>
+  <script src="laporan-ui.js?v=5"></script>
+  <script src="app.js?v=5"></script>
+    <script src="laporan-data.js?v=5"></script>
+  <script src="laporan-ui.js?v=5"></script>
+  <script src="admob-bridge.js?v=6"></script>
+  <script src="app.js?v=6"></script>
+</body>
+
+</body>
+</html>
+
