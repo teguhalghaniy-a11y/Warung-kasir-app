@@ -1,5 +1,5 @@
 const LaporanModule = {
-  period: "30D", // TODAY, 7D, 30D, ALL
+  period: "TODAY", // Default langsung Hari Ini agar tutup kasir cepat dicek
   activeSection: "terlaris", // terlaris, profit, tidak_laku
 
   esc(str) {
@@ -40,6 +40,34 @@ const LaporanModule = {
       '<div class="stat-value">' + Utils.formatRupiah(rep.totalProfitRealized) + '</div>' +
       '<div class="stat-meta">Margin: ' + (rep.totalOmzetRealized > 0 ? Math.round((rep.totalProfitRealized / rep.totalOmzetRealized) * 100) : 0) + '%</div></div>' +
       '</div>';
+
+    // KARTU PEMISAHAN UANG LACI (TUNAI) VS NON-TUNAI (QRIS / TRANSFER / EDC)
+    const nonCashChannels = Object.keys(rep.nonCashBreakdown || {});
+    const nonCashDetailHtml = nonCashChannels.length > 0
+      ? nonCashChannels.map((ch) =>
+          '<div style="display:flex; justify-content:space-between; font-size:11.5px; color:#bfdbfe; margin-top:3px;">' +
+          '<span>• ' + this.esc(ch) + '</span><strong>' + Utils.formatRupiah(rep.nonCashBreakdown[ch]) + '</strong></div>'
+        ).join("")
+      : '<div style="font-size:11px; color:#93c5fd; margin-top:2px;">Belum ada transaksi non-tunai</div>';
+
+    html +=
+      '<div class="card"><div class="card-header"><div><h3 class="card-title">Rekap Tutup Kasir (Tunai vs Non-Tunai)</h3>' +
+      '<p class="card-subtitle">Pisahkan uang fisik di laci dengan saldo rekening/QRIS</p></div></div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+      '<div style="background:#064e3b; border:1px solid #059669; border-radius:10px; padding:10px;">' +
+      '<div style="font-size:11px; color:#a7f3d0;">💵 Uang Fisik Laci (Tunai)</div>' +
+      '<div style="font-size:16px; font-weight:800; color:#ffffff; margin:4px 0;">' + Utils.formatRupiah(rep.cashDrawerRevenue) + '</div>' +
+      '<div style="font-size:11px; color:#6ee7b7;">' + rep.cashDrawerCount + ' transaksi tunai</div>' +
+      (rep.debtInstallmentCollected > 0
+        ? '<div style="font-size:11px; color:#fde68a; margin-top:4px; border-top:1px dashed #059669; padding-top:4px;">+ Cicilan Hutang: ' + Utils.formatRupiah(rep.debtInstallmentCollected) + '</div>'
+        : '') +
+      '</div>' +
+      '<div style="background:#1e3a8a; border:1px solid #3b82f6; border-radius:10px; padding:10px;">' +
+      '<div style="font-size:11px; color:#bfdbfe;">📱 Non-Tunai (QRIS/EDC/TF)</div>' +
+      '<div style="font-size:16px; font-weight:800; color:#ffffff; margin:4px 0;">' + Utils.formatRupiah(rep.nonCashRevenue) + '</div>' +
+      '<div style="font-size:11px; color:#93c5fd;">' + rep.nonCashCount + ' transaksi non-tunai</div>' +
+      nonCashDetailHtml +
+      '</div></div></div>';
 
     html +=
       '<div class="mini-stats-bar">' +

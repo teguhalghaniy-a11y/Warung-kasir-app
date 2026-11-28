@@ -6,17 +6,31 @@ const StokData = {
       .replace(/\s+/g, " ");
   },
 
+  applySequentialDiscount(baseAmount, discountStr) {
+    let amount = Math.max(0, Number(baseAmount) || 0);
+    if (!discountStr) return Math.round(amount);
+
+    const parts = String(discountStr)
+      .split(/[+,;\s]+/)
+      .map((s) => parseFloat(s.replace("%", "").trim()))
+      .filter((n) => !isNaN(n) && n > 0);
+
+    for (let i = 0; i < parts.length; i++) {
+      const pct = Math.min(100, parts[i]);
+      amount = amount * (1 - pct / 100);
+    }
+    return Math.round(amount);
+  },
+
   async findDuplicateName(name, excludeProductId = null) {
     const target = this.normalizeName(name);
     if (!target) return null;
     const products = await WarungDB.getAll("products");
-    return products.find(p => {
+    return products.find((p) => {
       if (excludeProductId && p.id === excludeProductId) return false;
       return this.normalizeName(p.name) === target;
     }) || null;
   },
-
-  // ...fungsi-fungsi lama di bawahnya tetap dibiarkan apa adanya...
 
   async getEnrichedProducts() {
     const [settings, products, batches, transactions] = await Promise.all([
@@ -116,6 +130,9 @@ const StokData = {
       sellPricePack: data.sellPricePack,
       buyPriceRetail: data.buyPriceRetail,
       sellPriceRetail: data.sellPriceRetail,
+      buyDiscountStr: data.buyDiscountStr || "",
+      wholesaleMinQty: Number(data.wholesaleMinQty) || 0,
+      wholesaleDiscountStr: data.wholesaleDiscountStr || "",
       totalSmallestUnits: totalInitialUnits,
       notes: data.notes,
       createdAt: new Date().toISOString()
@@ -133,10 +150,12 @@ const StokData = {
         remainingSmallestUnits: totalInitialUnits,
         buyPricePack: data.buyPricePack,
         buyPriceRetail: data.buyPriceRetail,
+        buyDiscountStr: data.buyDiscountStr || "",
         notes: data.notes
       });
 
       if (totalInitialUnits > 0) {
+        const discInfo = data.buyDiscountStr ? " [Disc Beli " + data.buyDiscountStr + "%]" : "";
         await WarungDB.put("stock_logs", {
           id: Utils.generateId("LOG"),
           productId: productId,
@@ -147,14 +166,14 @@ const StokData = {
           changeSmallestUnits: totalInitialUnits,
           balanceSmallestUnits: totalInitialUnits,
           packSize: data.packSize,
-          note: "Stok awal (" + data.initPacks + " bks + " + data.initRetail + " ecer)"
+          note: "Stok awal (" + data.initPacks + " bks + " + data.initRetail + " ecer)" + discInfo
         });
       }
     }
     return newProduct;
   },
 
-  async adjustStock(prod, deltaUnits, logType, dateStr, expiryDate, note) {
+  async adjustStock(prod, deltaUnits, logType, dateStr, expiryDate, note, batchOverrides = null) {
     const allBatches = await WarungDB.getAll("batches");
     const prodBatches = allBatches
       .filter((b) => b.productId === prod.id && Number(b.remainingSmallestUnits) > 0)
@@ -165,6 +184,17 @@ const StokData = {
       });
 
     if (deltaUnits > 0) {
+      const batchBuyPack =
+        batchOverrides && batchOverrides.buyPricePack !== undefined
+          ? Number(batchOverrides.buyPricePack)
+          : Number(prod.buyPricePack);
+      const batchBuyRetail =
+        batchOverrides && batchOverrides.buyPriceRetail !== undefined
+          ? Number(batchOverrides.buyPriceRetail)
+          : Number(prod.buyPriceRetail);
+      const batchDiscStr =
+        batchOverrides && batchOverrides.buyDiscountStr ? String(batchOverrides.buyDiscountStr) : "";
+
       await WarungDB.put("batches", {
         id: Utils.generateId("BCH"),
         productId: prod.id,
@@ -172,10 +202,18 @@ const StokData = {
         expiryDate: expiryDate || "",
         initialSmallestUnits: deltaUnits,
         remainingSmallestUnits: deltaUnits,
-        buyPricePack: prod.buyPricePack,
-        buyPriceRetail: prod.buyPriceRetail,
+        buyPricePack: batchBuyPack,
+        buyPriceRetail: batchBuyRetail,
+        buyDiscountStr: batchDiscStr,
         notes: note
       });
+
+      // Perbarui harga beli terbaru di master produk jika diisi saat restock
+      if (batchOverrides && batchOverrides.buyPricePack !== undefined) {
+        prod.buyPricePack = batchBuyPack;
+        prod.buyPriceRetail = batchBuyRetail;
+        if (batchDiscStr) prod.buyDiscountStr = batchDiscStr;
+      }
     } else if (deltaUnits < 0) {
       let toDeduct = Math.abs(deltaUnits);
       for (let i = 0; i < prodBatches.length; i++) {

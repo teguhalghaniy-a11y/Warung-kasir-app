@@ -1,5 +1,24 @@
 const KasirData = {
-  // Hitung diskon bertingkat berantai (misal "10+5" atau "10, 5") -> 10000 -10% = 9000, lalu -5% = 8550
+  getDefaultPromoConfig() {
+    return {
+      weekendEnabled: false,
+      weekendDays: [0, 6], // 0=Minggu, 5=Jumat, 6=Sabtu
+      weekendDiscountStr: "5",
+      weekendMinSpend: 0,
+      wholesaleEnabled: false,
+      wholesaleMinQty: 3,
+      wholesaleDiscountStr: "5"
+    };
+  },
+
+  isWeekendPromoActive(promoCfg, dateObj = new Date()) {
+    if (!promoCfg || !promoCfg.weekendEnabled) return false;
+    const days = Array.isArray(promoCfg.weekendDays) ? promoCfg.weekendDays : [];
+    const todayDay = dateObj.getDay(); // 0 (Min) - 6 (Sab)
+    return days.includes(todayDay) && String(promoCfg.weekendDiscountStr || "").trim() !== "";
+  },
+
+  // Hitung diskon bertingkat berantai (misal "10+5" -> 10000 -10% = 9000, lalu -5% = 8550)
   applySequentialDiscount(baseAmount, discountStr) {
     let amount = Math.max(0, Number(baseAmount) || 0);
     if (!discountStr) return Math.round(amount);
@@ -58,7 +77,8 @@ const KasirData = {
     const {
       cartItems,
       globalDiscountStr,
-      paymentMethod, // "TUNAI" atau "HUTANG"
+      paymentMethod,
+      nonCashChannel,
       cashPaid,
       customerName,
       customerPhone,
@@ -85,7 +105,6 @@ const KasirData = {
 
     const prodMap = new Map(allProducts.map((p) => [p.id, p]));
 
-    // Validasi stok total sebelum mutasi database
     const requiredUnitsByProd = {};
     for (let i = 0; i < totals.items.length; i++) {
       const item = totals.items[i];
@@ -112,8 +131,6 @@ const KasirData = {
 
     let totalCogs = 0;
     const finalizedItems = [];
-
-    // Alokasi proporsional diskon global ke tiap baris item agar laba bersih akurat
     const globalRatio = totals.netItemsSubtotal > 0 ? totals.grandTotal / totals.netItemsSubtotal : 1;
 
     for (let i = 0; i < totals.items.length; i++) {
@@ -122,7 +139,6 @@ const KasirData = {
       const packSize = Math.max(1, Number(prod.packSize) || 1);
       const unitsToDeduct = item.saleMode === "ECERAN" ? item.qty : item.qty * packSize;
 
-      // Ambil batch aktif urut FEFO (kedaluwarsa terdekat lebih dulu)
       const prodBatches = allBatches
         .filter((b) => b.productId === prod.id && Number(b.remainingSmallestUnits) > 0)
         .sort((a, b) => {
@@ -141,7 +157,6 @@ const KasirData = {
         const batchAvail = Number(batch.remainingSmallestUnits) || 0;
         const take = Math.min(batchAvail, remainingNeed);
 
-        // Hitung modal historis per unit dari batch tersebut
         const unitCost =
           batch.buyPriceRetail !== undefined && Number(batch.buyPriceRetail) > 0
             ? Number(batch.buyPriceRetail)
@@ -160,7 +175,6 @@ const KasirData = {
         await WarungDB.put("batches", batch);
       }
 
-      // Fallback jika ada stok tanpa record batch
       if (remainingNeed > 0) {
         const fallbackUnitCost = (Number(prod.buyPricePack) || 0) / packSize;
         itemCogs += remainingNeed * fallbackUnitCost;
@@ -169,12 +183,10 @@ const KasirData = {
       itemCogs = Math.round(itemCogs);
       totalCogs += itemCogs;
 
-      // Update total stok produk
       prod.totalSmallestUnits = Math.max(0, (Number(prod.totalSmallestUnits) || 0) - unitsToDeduct);
       prod.updatedAt = new Date().toISOString();
       await WarungDB.put("products", prod);
 
-      // Catat ke riwayat pergerakan stok
       await WarungDB.put("stock_logs", {
         id: Utils.generateId("LOG"),
         productId: prod.id,
@@ -211,10 +223,14 @@ const KasirData = {
 
     const totalProfit = totals.grandTotal - totalCogs;
     const isTunai = paymentMethod === "TUNAI";
-    const paidNow = isTunai ? totals.grandTotal : 0;
-    const changeAmount = isTunai ? Math.max(0, Number(cashPaid) - totals.grandTotal) : 0;
+    const isNonTunai = paymentMethod === "NON_TUNAI";
+    const isPaidImmediate = isTunai || isNonTunai;
 
-    // Untuk hutang, omzet & profit terealisasi = 0 di awal, lalu bertumbuh proporsional saat dicicil
+    const paidNow = isPaidImmediate ? totals.grandTotal : 0;
+    const cashReceivedVal = isTunai ? Number(cashPaid) : isNonTunai ? totals.grandTotal : 0;
+    const changeAmount = isTunai ? Math.max(0, Number(cashPaid) - totals.grandTotal) : 0;
+    const resolvedChannel = isNonTunai ? String(nonCashChannel || "QRIS").trim() : "";
+
     const transactionRecord = {
       id: trxId,
       invoiceNo: invoiceNo,
@@ -222,8 +238,9 @@ const KasirData = {
       time: timeStr,
       timestamp: new Date().toISOString(),
       paymentMethod: paymentMethod,
-      status: isTunai ? "LUNAS" : "BELUM_LUNAS",
-      customerName: isTunai ? (customerName || "Pelanggan Umum") : String(customerName).trim(),
+      nonCashChannel: resolvedChannel,
+      status: isPaidImmediate ? "LUNAS" : "BELUM_LUNAS",
+      customerName: isPaidImmediate ? (customerName || "Pelanggan Umum") : String(customerName).trim(),
       customerPhone: String(customerPhone || "").trim(),
       items: finalizedItems,
       grossSubtotal: totals.grossSubtotal,
@@ -234,18 +251,17 @@ const KasirData = {
       totalCogs: totalCogs,
       totalProfit: totalProfit,
       paidAmount: paidNow,
-      remainingDebt: isTunai ? 0 : totals.grandTotal,
-      realizedRevenue: isTunai ? totals.grandTotal : 0,
-      realizedProfit: isTunai ? totalProfit : 0,
-      cashReceived: isTunai ? Number(cashPaid) : 0,
+      remainingDebt: isPaidImmediate ? 0 : totals.grandTotal,
+      realizedRevenue: isPaidImmediate ? totals.grandTotal : 0,
+      realizedProfit: isPaidImmediate ? totalProfit : 0,
+      cashReceived: cashReceivedVal,
       changeAmount: changeAmount,
       note: String(note || "").trim()
     };
 
     await WarungDB.put("transactions", transactionRecord);
 
-    // Jika Hutang, buat catatan piutang di store debts
-    if (!isTunai) {
+    if (paymentMethod === "HUTANG") {
       await WarungDB.put("debts", {
         id: Utils.generateId("DBT"),
         transactionId: trxId,

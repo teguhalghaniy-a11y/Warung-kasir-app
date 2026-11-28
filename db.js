@@ -113,5 +113,15 @@ const WarungDB = {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
+  },
+
+  delete(storeName, key) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const req = store.delete(key);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
   }
 };

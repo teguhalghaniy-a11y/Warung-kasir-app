@@ -16,19 +16,34 @@ const LaporanData = {
   },
 
   async buildReport(period) {
-    const [products, transactions, debts] = await Promise.all([
+    const [products, transactions, debts, debtPayments] = await Promise.all([
       WarungDB.getAll("products"),
       WarungDB.getAll("transactions"),
-      WarungDB.getAll("debts")
+      WarungDB.getAll("debts"),
+      WarungDB.getAll("debt_payments")
     ]);
 
     const cutoffISO = this.getCutoffDateISO(period);
     const filteredTrx = transactions.filter((t) => !cutoffISO || (t.date && t.date >= cutoffISO));
+    const filteredPayments = debtPayments.filter((p) => !cutoffISO || (p.date && p.date >= cutoffISO));
 
     let totalOmzetRealized = 0;
     let totalProfitRealized = 0;
     let totalOmzetBruto = 0;
     let totalCogs = 0;
+
+    // Rincian metode pembayaran (Uang masuk nyata)
+    let cashDrawerRevenue = 0; // Uang tunai langsung di kasir
+    let cashDrawerCount = 0;
+    let nonCashRevenue = 0;    // Uang non-tunai (QRIS / Transfer / EDC)
+    let nonCashCount = 0;
+    const nonCashBreakdown = {}; // Rincian per kanal: { QRIS: 50000, ... }
+
+    // Cicilan piutang masuk pada periode ini
+    let debtInstallmentCollected = 0;
+    filteredPayments.forEach((pay) => {
+      debtInstallmentCollected += Number(pay.amount) || 0;
+    });
 
     let packRevenue = 0;
     let packProfit = 0;
@@ -68,6 +83,17 @@ const LaporanData = {
       totalOmzetRealized += trxRealizedRev;
       totalProfitRealized += trxRealizedProf;
       totalCogs += Number(trx.totalCogs) || 0;
+
+      // Hitung pemisahan Tunai vs Non-Tunai
+      if (trx.paymentMethod === "TUNAI") {
+        cashDrawerRevenue += trxTotal;
+        cashDrawerCount += 1;
+      } else if (trx.paymentMethod === "NON_TUNAI") {
+        nonCashRevenue += trxTotal;
+        nonCashCount += 1;
+        const ch = (trx.nonCashChannel && trx.nonCashChannel.trim()) || "QRIS / Transfer";
+        nonCashBreakdown[ch] = (nonCashBreakdown[ch] || 0) + trxTotal;
+      }
 
       if (Array.isArray(trx.items)) {
         trx.items.forEach((it) => {
@@ -118,19 +144,16 @@ const LaporanData = {
 
     const allStats = Object.values(productStatsMap);
 
-    // Urut terlaris berdasarkan total unit terkecil terjual
     const topSelling = allStats
       .filter((s) => s.soldSmallestUnits > 0)
       .sort((a, b) => b.soldSmallestUnits - a.soldSmallestUnits)
       .slice(0, 10);
 
-    // Urut profit terealisasi tertinggi
     const topProfit = allStats
       .filter((s) => s.realizedProfit > 0)
       .sort((a, b) => b.realizedProfit - a.realizedProfit)
       .slice(0, 10);
 
-    // Barang tidak laku (punya stok fisik > 0, namun 0 unit terjual pada periode ini)
     const slowMoving = allStats
       .filter((s) => s.soldSmallestUnits === 0 && s.stockUnits > 0)
       .sort((a, b) => b.stockCapitalValue - a.stockCapitalValue);
@@ -147,6 +170,12 @@ const LaporanData = {
       totalOmzetRealized: totalOmzetRealized,
       totalProfitRealized: totalProfitRealized,
       totalCogs: totalCogs,
+      cashDrawerRevenue: cashDrawerRevenue,
+      cashDrawerCount: cashDrawerCount,
+      nonCashRevenue: nonCashRevenue,
+      nonCashCount: nonCashCount,
+      nonCashBreakdown: nonCashBreakdown,
+      debtInstallmentCollected: debtInstallmentCollected,
       totalAssetStockValue: totalAssetStockValue,
       totalPendingReceivables: totalPendingReceivables,
       packStats: { revenue: packRevenue, profit: packProfit, qty: packQtyCount },
